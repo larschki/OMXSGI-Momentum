@@ -1,0 +1,937 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OMXSGI Momentum</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-annotation/3.0.1/chartjs-plugin-annotation.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0c0f;
+    --surface: #111418;
+    --surface2: #171b21;
+    --border: #1e2530;
+    --accent: #00e5a0;
+    --accent2: #0099ff;
+    --danger: #ff4560;
+    --warn: #f5a623;
+    --text: #e8ecf0;
+    --muted: #5a6370;
+    --muted2: #8a93a0;
+    --green: #00e5a0;
+    --red: #ff4560;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(var(--border) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size: 40px 40px;
+    opacity: 0.3;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    position: relative;
+    z-index: 1;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 32px 24px;
+  }
+
+  /* Header */
+  header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 40px;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .header-left h1 {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 2.2rem;
+    letter-spacing: -0.03em;
+    color: var(--text);
+    line-height: 1;
+  }
+
+  .header-left h1 span {
+    color: var(--accent);
+  }
+
+  .header-left .subtitle {
+    font-size: 0.72rem;
+    color: var(--muted);
+    margin-top: 8px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .last-updated {
+    font-size: 0.7rem;
+    color: var(--muted);
+    letter-spacing: 0.05em;
+  }
+
+  .refresh-btn {
+    background: transparent;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    padding: 8px 16px;
+    cursor: pointer;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    transition: all 0.2s;
+  }
+
+  .refresh-btn:hover {
+    background: var(--accent);
+    color: var(--bg);
+  }
+
+  .refresh-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  /* Filters */
+  .filters {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 28px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .filter-label {
+    font-size: 0.68rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-right: 4px;
+  }
+
+  .filter-btn {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--muted2);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.68rem;
+    padding: 6px 14px;
+    cursor: pointer;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    transition: all 0.15s;
+  }
+
+  .filter-btn:hover, .filter-btn.active {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  /* Stats bar */
+  .stats-bar {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 1px;
+    background: var(--border);
+    margin-bottom: 32px;
+    border: 1px solid var(--border);
+  }
+
+  .stat-card {
+    background: var(--surface);
+    padding: 18px 20px;
+  }
+
+  .stat-card .label {
+    font-size: 0.62rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 6px;
+  }
+
+  .stat-card .value {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  .stat-card .value.green { color: var(--green); }
+  .stat-card .value.red { color: var(--red); }
+
+  /* Main layout */
+  .main-layout {
+    display: block;
+  }
+
+  /* Table */
+  .table-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    overflow: hidden;
+  }
+
+  .section-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .section-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted2);
+  }
+
+  .table-wrap { overflow-x: auto; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.72rem;
+  }
+
+  th {
+    padding: 10px 14px;
+    text-align: left;
+    color: var(--muted);
+    font-size: 0.62rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    white-space: nowrap;
+    user-select: none;
+  }
+
+  th:hover { color: var(--accent); }
+
+  td {
+    padding: 11px 14px;
+    border-bottom: 1px solid rgba(30,37,48,0.5);
+    white-space: nowrap;
+    transition: background 0.1s;
+  }
+
+  tr { cursor: pointer; }
+
+  tr:hover td { background: var(--surface2); }
+  tr.selected td { background: rgba(0,229,160,0.05); border-left: 2px solid var(--accent); }
+
+  .stock-name {
+    font-family: 'Syne', sans-serif;
+    font-weight: 600;
+    font-size: 0.78rem;
+    color: var(--text);
+  }
+
+  .stock-ticker {
+    font-size: 0.62rem;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+
+  .price { font-weight: 500; }
+
+  .badge {
+    display: inline-block;
+    padding: 2px 7px;
+    font-size: 0.6rem;
+    border-radius: 2px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 500;
+  }
+
+  .badge.green { background: rgba(0,229,160,0.12); color: var(--green); }
+  .badge.red { background: rgba(255,69,96,0.12); color: var(--red); }
+  .badge.yellow { background: rgba(245,166,35,0.12); color: var(--warn); }
+
+  .pct.pos { color: var(--green); }
+  .pct.neg { color: var(--red); }
+
+  /* Score bar */
+  .score-bar-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .score-bar {
+    width: 60px;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .score-bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.4s;
+  }
+
+  .score-num {
+    font-size: 0.68rem;
+    min-width: 36px;
+    text-align: right;
+  }
+
+  /* RSI indicator */
+  .rsi-indicator {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .rsi-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+  }
+
+  /* Inline chart dropdown */
+  .chart-dropdown {
+    display: none;
+    background: var(--surface2);
+    border-top: 1px solid var(--border);
+    border-bottom: 2px solid var(--accent);
+    animation: slideDown 0.2s ease;
+  }
+
+  .chart-dropdown.open { display: table-row; }
+
+  @keyframes slideDown {
+    from { opacity: 0; transform: translateY(-6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .chart-dropdown td {
+    padding: 0 !important;
+    border: none !important;
+  }
+
+  .chart-dropdown-inner {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+  }
+
+  .chart-sidebar {
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    padding: 16px 18px;
+    gap: 12px;
+  }
+
+  .chart-stock-price {
+    font-size: 1.4rem;
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+  }
+
+  .chart-metrics {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1px;
+    background: var(--border);
+  }
+
+  .chart-metric {
+    background: var(--surface);
+    padding: 8px 10px;
+  }
+
+  .chart-metric .lbl {
+    font-size: 0.55rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .chart-metric .val {
+    font-size: 0.8rem;
+    margin-top: 2px;
+    font-weight: 500;
+  }
+
+  .chart-main {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .chart-wrap {
+    padding: 16px 16px 12px;
+    height: 300px;
+  }
+
+  .chart-wrap canvas { display: block; }
+
+  /* Momentum bars */
+  .mom-bars {
+    padding: 10px 18px 16px;
+    border-top: 1px solid var(--border);
+  }
+
+  .mom-bars-title {
+    font-size: 0.58rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 8px;
+  }
+
+  .mom-bar-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 7px;
+  }
+
+  .mom-bar-label {
+    color: var(--muted2);
+    min-width: 30px;
+    font-size: 0.6rem;
+  }
+
+  .mom-bar-track {
+    flex: 1;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    position: relative;
+  }
+
+  .mom-bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    position: absolute;
+    transition: width 0.4s;
+  }
+
+  .mom-bar-val {
+    min-width: 46px;
+    text-align: right;
+    font-size: 0.62rem;
+  }
+
+  /* Loading & empty states */
+  .loading-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 80px 20px;
+    gap: 16px;
+  }
+
+  .spinner {
+    width: 32px;
+    height: 32px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .loading-text {
+    font-size: 0.72rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+
+  .empty-chart {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 200px;
+    color: var(--muted);
+    font-size: 0.72rem;
+    letter-spacing: 0.05em;
+  }
+
+  /* Placeholder panel */
+  .placeholder-panel {
+    padding: 60px 20px;
+    text-align: center;
+  }
+
+  .placeholder-icon {
+    font-size: 2rem;
+    margin-bottom: 12px;
+    opacity: 0.3;
+  }
+
+  .placeholder-text {
+    font-size: 0.72rem;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- Header -->
+  <header>
+    <div class="header-left">
+      <h1>OMXSGI <span>Momentum</span></h1>
+      <p class="subtitle">Stockholmsbörsen — MA50 / MA200 / RSI / Relativ Styrka</p>
+    </div>
+    <div class="header-right">
+      <span class="last-updated" id="lastUpdated">—</span>
+      <button class="refresh-btn" id="showAllBtn" onclick="loadAll()" style="border-color:var(--accent2);color:var(--accent2);display:none">▼ Visa alla Large+Mid Cap</button>
+      <button class="refresh-btn" id="refreshBtn" onclick="loadData(allLoaded ? '/api/stocks' : '/api/stocks/top')">↻ Uppdatera</button>
+    </div>
+  </header>
+
+  <!-- Stats Bar -->
+  <div class="stats-bar" id="statsBar">
+    <div class="stat-card"><div class="label">Aktier laddade</div><div class="value" id="statTotal">—</div></div>
+    <div class="stat-card"><div class="label">Över MA200</div><div class="value green" id="statAboveMA">—</div></div>
+    <div class="stat-card"><div class="label">Golden Cross</div><div class="value green" id="statGolden">—</div></div>
+    <div class="stat-card"><div class="label">Ø Momentum</div><div class="value" id="statAvgMom">—</div></div>
+  </div>
+
+  <!-- Filters -->
+  <div class="filters">
+    <span class="filter-label">Visa:</span>
+    <button class="filter-btn active" onclick="setFilter('all', this)">Alla</button>
+    <button class="filter-btn" onclick="setFilter('above_ma200', this)">Över MA200</button>
+    <button class="filter-btn" onclick="setFilter('golden_cross', this)">Golden Cross</button>
+    <button class="filter-btn" onclick="setFilter('overbought', this)">RSI &gt; 70</button>
+    <button class="filter-btn" onclick="setFilter('oversold', this)">RSI &lt; 30</button>
+    <button class="filter-btn" onclick="setFilter('top10', this)">Top 10 Momentum</button>
+    <button class="filter-btn" onclick="sortBy('last_golden_date'); setFilter('golden_cross', this)">Senaste Golden Cross ↓</button>
+  </div>
+
+  <!-- Main layout -->
+  <div class="main-layout">
+
+    <!-- Table -->
+    <div class="table-section">
+      <div class="section-header">
+        <span class="section-title">Aktier</span>
+        <span class="last-updated" id="rowCount">—</span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th onclick="sortBy('name')">#  Aktie</th>
+              <th onclick="sortBy('price')">Kurs</th>
+              <th onclick="sortBy('ma200')">MA200</th>
+              <th onclick="sortBy('rsi')">RSI</th>
+              <th onclick="sortBy('mom_1m')">1M</th>
+              <th onclick="sortBy('mom_3m')">3M</th>
+              <th onclick="sortBy('mom_6m')">6M</th>
+              <th onclick="sortBy('mom_12m')">12M</th>
+              <th onclick="sortBy('momentum_score')">Score</th>
+              <th onclick="sortBy('last_golden_date')">Golden Cross</th>
+              <th>Signal</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody">
+            <tr><td colspan="11"><div class="loading-state"><div class="spinner"></div><span class="loading-text">Hämtar marknadsdata...</span></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div id="showAllTableBtn" style="display:none;padding:14px 20px;border-top:1px solid var(--border);text-align:center">
+        <button class="refresh-btn" onclick="loadAll()" style="border-color:var(--accent2);color:var(--accent2);font-size:0.72rem;padding:10px 28px">
+          ▼ Visa alla Large Cap + Mid Cap (~110 aktier)
+        </button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+let allData = [];
+let currentFilter = 'all';
+let sortKey = 'momentum_score';
+let sortAsc = false;
+let selectedTicker = null;
+let chartInstance = null;
+
+const API_BASE = 'http://localhost:5050';
+
+let allLoaded = false;
+
+async function loadData(endpoint = '/api/stocks/top') {
+  const btn = document.getElementById('refreshBtn');
+  btn.disabled = true;
+  btn.textContent = '⟳ Laddar...';
+  const isTop = endpoint === '/api/stocks/top';
+  document.getElementById('tableBody').innerHTML = `<tr><td colspan="11"><div class="loading-state"><div class="spinner"></div><span class="loading-text">${isTop ? 'Hämtar top 30 Large Cap...' : 'Hämtar alla Large + Mid Cap — ca 30 sek...'}</span></div></td></tr>`;
+
+  try {
+    const res = await fetch(`${API_BASE}${endpoint}`);
+    if (!res.ok) throw new Error('API error');
+    const data = await res.json();
+    if (!isTop) {
+      allData = data;
+      allLoaded = true;
+      document.getElementById('showAllBtn').style.display = 'none';
+    } else {
+      allData = data;
+      allLoaded = false;
+      document.getElementById('showAllBtn').style.display = 'inline-block';
+    }
+    document.getElementById('lastUpdated').textContent = 'Uppdaterad ' + new Date().toLocaleTimeString('sv-SE');
+    updateStats();
+    renderTable();
+  } catch (e) {
+    document.getElementById('tableBody').innerHTML = `<tr><td colspan="11" style="padding:40px 20px;text-align:center;color:var(--red);font-size:0.72rem;">⚠ Kunde inte ansluta till backend. Starta app.py på port 5050.</td></tr>`;
+  }
+
+  btn.disabled = false;
+  btn.textContent = '↻ Uppdatera';
+}
+
+async function loadAll() {
+  await loadData('/api/stocks');
+}
+
+function updateStats() {
+  const n = allData.length;
+  const aboveMA = allData.filter(s => s.above_ma200).length;
+  const golden = allData.filter(s => s.golden_cross).length;
+  const avgMom = allData.reduce((a, b) => a + b.momentum_score, 0) / n;
+
+  document.getElementById('statTotal').textContent = n;
+  document.getElementById('statAboveMA').textContent = `${aboveMA} / ${n}`;
+  document.getElementById('statGolden').textContent = `${golden} / ${n}`;
+  const el = document.getElementById('statAvgMom');
+  el.textContent = avgMom.toFixed(1);
+  el.className = 'value ' + (avgMom >= 0 ? 'green' : 'red');
+}
+
+function setFilter(f, btn) {
+  currentFilter = f;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  // Ladda alla aktier vid filtrering om de inte redan är laddade
+  if (!allLoaded && f !== 'all') {
+    loadAll().then(() => renderTable());
+  } else {
+    renderTable();
+  }
+}
+
+function sortBy(key) {
+  if (sortKey === key) sortAsc = !sortAsc;
+  else { sortKey = key; sortAsc = false; }
+  if (!allLoaded) {
+    loadAll().then(() => renderTable());
+  } else {
+    renderTable();
+  }
+}
+
+function sortVal(s, key) {
+  if (key === 'last_golden_date') {
+    // Sort by date string descending (most recent first)
+    return s.last_golden_date ? s.last_golden_date : '0000-00-00';
+  }
+  return s[key] ?? -999;
+}
+
+function filtered() {
+  let d = [...allData];
+  if (currentFilter === 'above_ma200') d = d.filter(s => s.above_ma200);
+  else if (currentFilter === 'golden_cross') d = d.filter(s => s.golden_cross);
+  else if (currentFilter === 'overbought') d = d.filter(s => s.rsi > 70);
+  else if (currentFilter === 'oversold') d = d.filter(s => s.rsi < 30);
+  else if (currentFilter === 'top10') d = d.sort((a,b) => b.momentum_score - a.momentum_score).slice(0, 10);
+
+  d.sort((a, b) => {
+    const av = sortVal(a, sortKey), bv = sortVal(b, sortKey);
+    if (typeof av === 'string') return sortAsc ? av.localeCompare(bv) : bv.localeCompare(av);
+    return sortAsc ? av - bv : bv - av;
+  });
+  return d;
+}
+
+function pctHtml(v) {
+  if (v === null || v === undefined) return '<span style="color:var(--muted)">—</span>';
+  const cls = v >= 0 ? 'pos' : 'neg';
+  const sign = v >= 0 ? '+' : '';
+  return `<span class="pct ${cls}">${sign}${v.toFixed(1)}%</span>`;
+}
+
+function scoreColor(s) {
+  if (s >= 40) return 'var(--green)';
+  if (s >= 0) return 'var(--accent2)';
+  if (s >= -40) return 'var(--warn)';
+  return 'var(--red)';
+}
+
+function rsiColor(r) {
+  if (r > 70) return 'var(--red)';
+  if (r < 30) return 'var(--accent2)';
+  return 'var(--green)';
+}
+
+function renderTable() {
+  const rows = filtered();
+  document.getElementById('rowCount').textContent = `${rows.length} aktier`;
+
+  const html = rows.map((s, i) => {
+    const scoreW = Math.min(Math.max((s.momentum_score + 100) / 200 * 100, 0), 100);
+    const sc = scoreColor(s.momentum_score);
+    const rc = rsiColor(s.rsi);
+
+    const signal = s.golden_cross
+      ? '<span class="badge green">Golden Cross</span>'
+      : s.above_ma200
+        ? '<span class="badge yellow">Över MA200</span>'
+        : '<span class="badge red">Under MA200</span>';
+
+    const sel = selectedTicker === s.ticker ? 'selected' : '';
+
+    const dropdownId = 'chart-' + s.ticker.replace(/[^a-zA-Z0-9]/g,'_');
+    const isOpen = selectedTicker === s.ticker;
+
+    const rowHtml = `<tr class="${isOpen ? 'selected' : ''}" onclick="selectStock('${s.ticker}')">
+      <td>
+        <div class="stock-name">${s.name} <span style="font-size:0.65rem;color:var(--muted)">${isOpen ? '▲' : '▼'}</span></div>
+        <div class="stock-ticker">${s.ticker.replace('.ST','')}</div>
+      </td>
+      <td class="price">${s.price.toLocaleString('sv-SE', {minimumFractionDigits:2})} kr</td>
+      <td style="color:${s.above_ma200 ? 'var(--green)' : 'var(--red)'}">${s.ma200.toLocaleString('sv-SE', {minimumFractionDigits:2})}</td>
+      <td>
+        <div class="rsi-indicator">
+          <div class="rsi-dot" style="background:${rc}"></div>
+          <span style="color:${rc}">${s.rsi.toFixed(1)}</span>
+        </div>
+      </td>
+      <td>${pctHtml(s.mom_1m)}</td>
+      <td>${pctHtml(s.mom_3m)}</td>
+      <td>${pctHtml(s.mom_6m)}</td>
+      <td>${pctHtml(s.mom_12m)}</td>
+      <td>
+        <div class="score-bar-wrap">
+          <div class="score-bar">
+            <div class="score-bar-fill" style="width:${scoreW}%;background:${sc}"></div>
+          </div>
+          <span class="score-num" style="color:${sc}">${s.momentum_score}</span>
+        </div>
+      </td>
+      <td>
+        ${s.last_golden_date
+          ? `<span style="font-size:0.62rem;color:var(--green)">${s.last_golden_date}</span>${s.last_death_date && s.last_death_date > s.last_golden_date ? '<span style="font-size:0.58rem;color:var(--red);margin-left:4px">⚠ DC after</span>' : ''}`
+          : '<span style="color:var(--muted);font-size:0.62rem">—</span>'}
+      </td>
+      <td>${signal}</td>
+    </tr>`;
+
+    const dropdownHtml = isOpen
+      ? `<tr class="chart-dropdown open" id="${dropdownId}"><td colspan="11"><div id="chart-container-${s.ticker.replace(/[^a-zA-Z0-9]/g,'_')}"></div></td></tr>`
+      : `<tr class="chart-dropdown" id="${dropdownId}"><td colspan="11"></td></tr>`;
+
+    return rowHtml + dropdownHtml;
+  }).join('');
+
+  document.getElementById('tableBody').innerHTML = html || `<tr><td colspan="11" style="padding:32px;text-align:center;color:var(--muted);font-size:0.72rem;">Inga aktier matchar filtret</td></tr>`;
+  // Visa/dölj "Visa alla"-knapp i tabellen
+  const showAllTableBtn = document.getElementById('showAllTableBtn');
+  if (showAllTableBtn) showAllTableBtn.style.display = allLoaded ? 'none' : 'block';
+}
+
+function selectStock(ticker) {
+  if (selectedTicker === ticker) {
+    selectedTicker = null;
+  } else {
+    selectedTicker = ticker;
+  }
+  renderTable();
+  if (selectedTicker) {
+    const s = allData.find(x => x.ticker === ticker);
+    if (s) {
+      // slight delay so DOM renders first
+      requestAnimationFrame(() => renderChart(s));
+    }
+  }
+}
+
+function renderChart(s) {
+  const safeId = s.ticker.replace(/[^a-zA-Z0-9]/g,'_');
+  const container = document.getElementById('chart-container-' + safeId);
+  if (!container) return;
+
+  const priceChange = s.mom_1m;
+  const priceCls = priceChange >= 0 ? 'green' : 'red';
+  const sign = priceChange >= 0 ? '+' : '';
+  const sc = scoreColor(s.momentum_score);
+  const signalLabel = s.golden_cross ? '✦ Golden Cross' : s.above_ma200 ? '▲ Över MA200' : '▼ Under MA200';
+  const signalColor = s.golden_cross ? 'var(--green)' : s.above_ma200 ? 'var(--warn)' : 'var(--red)';
+
+  container.innerHTML = `
+    <div class="chart-dropdown-inner">
+      <div class="chart-sidebar">
+        <div>
+          <div style="font-size:0.6rem;color:${signalColor};letter-spacing:0.08em;text-transform:uppercase;margin-bottom:6px">${signalLabel}</div>
+          <div class="chart-stock-price" style="color:var(--${priceCls})">${s.price.toLocaleString('sv-SE', {minimumFractionDigits:2})} <span style="font-size:0.85rem">kr</span></div>
+          <div style="font-size:0.68rem;color:var(--${priceCls});margin-top:2px">${sign}${priceChange?.toFixed(1) ?? '—'}% (1M)</div>
+        </div>
+        <div class="chart-metrics">
+          <div class="chart-metric">
+            <div class="lbl">MA50</div>
+            <div class="val" style="color:${s.price > s.ma50 ? 'var(--green)' : 'var(--red)'}">${s.ma50.toLocaleString('sv-SE', {minimumFractionDigits:2})}</div>
+          </div>
+          <div class="chart-metric">
+            <div class="lbl">MA200</div>
+            <div class="val" style="color:${s.above_ma200 ? 'var(--green)' : 'var(--red)'}">${s.ma200.toLocaleString('sv-SE', {minimumFractionDigits:2})}</div>
+          </div>
+          <div class="chart-metric">
+            <div class="lbl">RSI(14)</div>
+            <div class="val" style="color:${rsiColor(s.rsi)}">${s.rsi.toFixed(1)}</div>
+          </div>
+          <div class="chart-metric">
+            <div class="lbl">Vol ratio</div>
+            <div class="val" style="color:${s.vol_ratio > 1.5 ? 'var(--warn)' : 'var(--text)'}">${s.vol_ratio}x</div>
+          </div>
+          <div class="chart-metric" style="grid-column:span 2">
+            <div class="lbl">Score</div>
+            <div class="val" style="color:${sc};font-size:1.1rem;font-family:Syne,sans-serif;font-weight:800">${s.momentum_score}</div>
+          </div>
+        </div>
+        <div class="mom-bars">
+          <div class="mom-bars-title">Relativ avkastning</div>
+          ${momBarRow('1M', s.mom_1m)}
+          ${momBarRow('3M', s.mom_3m)}
+          ${momBarRow('6M', s.mom_6m)}
+          ${momBarRow('12M', s.mom_12m)}
+        </div>
+      </div>
+      <div class="chart-main">
+        <div class="chart-wrap"><canvas id="priceChart-${safeId}"></canvas></div>
+      </div>
+    </div>
+  `;
+
+  if (chartInstance) chartInstance.destroy();
+
+  const crossAnnotations = {};
+  if (s.cross_events) {
+    s.cross_events.forEach((ev, i) => {
+      if (s.dates.includes(ev.date)) {
+        crossAnnotations['cross_' + i] = {
+          type: 'line',
+          xMin: ev.date,
+          xMax: ev.date,
+          borderColor: ev.type === 'golden' ? 'rgba(0,229,160,0.75)' : 'rgba(255,69,96,0.75)',
+          borderWidth: 2,
+          borderDash: ev.type === 'golden' ? [] : [4, 3],
+          label: {
+            display: true,
+            content: ev.type === 'golden' ? '✦ GC' : '✕ DC',
+            position: 'start',
+            yAdjust: ev.type === 'golden' ? -18 : 8,
+            color: ev.type === 'golden' ? '#00e5a0' : '#ff4560',
+            font: { size: 9, family: 'DM Mono', weight: '600' },
+            backgroundColor: ev.type === 'golden' ? 'rgba(0,229,160,0.12)' : 'rgba(255,69,96,0.12)',
+            padding: { x: 4, y: 2 },
+            borderRadius: 2,
+          }
+        };
+      }
+    });
+  }
+
+  const ctx = document.getElementById('priceChart-' + safeId).getContext('2d');
+  chartInstance = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: s.dates,
+      datasets: [
+        { label: 'Kurs',  data: s.prices,    borderColor: '#00e5a0', borderWidth: 1.5, pointRadius: 0, tension: 0.1, fill: false, order: 1 },
+        { label: 'MA50',  data: s.ma50_arr,  borderColor: '#0099ff', borderWidth: 1.2, pointRadius: 0, tension: 0.3, fill: false, borderDash: [4,4], order: 2 },
+        { label: 'MA200', data: s.ma200_arr, borderColor: '#f5a623', borderWidth: 1.2, pointRadius: 0, tension: 0.3, fill: false, borderDash: [6,3], order: 3 },
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { labels: { color: '#5a6370', font: { family: 'DM Mono', size: 10 }, boxWidth: 16, padding: 12 } },
+        tooltip: {
+          backgroundColor: '#111418', borderColor: '#1e2530', borderWidth: 1,
+          titleColor: '#8a93a0', bodyColor: '#e8ecf0',
+          titleFont: { family: 'DM Mono', size: 10 }, bodyFont: { family: 'DM Mono', size: 11 },
+          callbacks: { label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y?.toFixed(2) ?? '—'} kr` }
+        },
+        annotation: { annotations: crossAnnotations }
+      },
+      scales: {
+        x: { ticks: { color: '#3a4350', font: { size: 9, family: 'DM Mono' }, maxTicksLimit: 6, maxRotation: 0 }, grid: { color: 'rgba(30,37,48,0.6)' } },
+        y: { ticks: { color: '#5a6370', font: { size: 9, family: 'DM Mono' }, maxTicksLimit: 5, callback: v => v.toFixed(0) }, grid: { color: 'rgba(30,37,48,0.6)' } }
+      }
+    }
+  });
+}
+
+function momBarRow(label, val) {
+  if (val === null || val === undefined) return '';
+  const maxAbs = 50;
+  const clamp = Math.min(Math.abs(val), maxAbs);
+  const pct = (clamp / maxAbs) * 100;
+  const pos = val >= 0;
+  const color = pos ? 'var(--green)' : 'var(--red)';
+  const sign = pos ? '+' : '';
+  return `<div class="mom-bar-row">
+    <span class="mom-bar-label">${label}</span>
+    <div class="mom-bar-track">
+      <div class="mom-bar-fill" style="width:${pct}%;background:${color}"></div>
+    </div>
+    <span class="mom-bar-val" style="color:${color}">${sign}${val.toFixed(1)}%</span>
+  </div>`;
+}
+
+// Load on start
+loadData('/api/stocks/top');
+</script>
+</body>
+</html>
