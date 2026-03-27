@@ -446,12 +446,28 @@ def logout():
 
 
 @app.route("/api/stocks")
-
+@login_required
 def stocks():
-    """Returnerar alla tier 1 + tier 2."""
-    results = fetch_tickers(TICKERS)
-    results.sort(key=lambda x: x["momentum_score"], reverse=True)
-    return jsonify(results)
+    """
+    Returnerar alla tier 1+2 i omgångar om 25 tickers.
+    Undviker Renders 30-sekunders timeout genom att dela upp yfinance-anropen.
+    """
+    import json
+    from flask import Response, stream_with_context
+
+    all_items = list(TICKERS.items())
+    batch_size = 25
+    batches = [dict(all_items[i:i+batch_size]) for i in range(0, len(all_items), batch_size)]
+
+    def generate():
+        all_results = []
+        for batch in batches:
+            results = fetch_tickers(batch)
+            all_results.extend(results)
+        all_results.sort(key=lambda x: x["momentum_score"], reverse=True)
+        yield json.dumps(all_results)
+
+    return Response(stream_with_context(generate()), mimetype="application/json")
 
 
 @app.route("/api/stocks/top")
