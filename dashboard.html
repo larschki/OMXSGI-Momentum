@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>OMXSGI Momentum</title>
+<title>OMX Momentum</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-annotation/3.0.1/chartjs-plugin-annotation.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
@@ -507,6 +507,164 @@
     color: var(--muted);
     line-height: 1.6;
   }
+
+  /* View tabs */
+  .view-tabs {
+    display: flex;
+    gap: 0;
+    margin-bottom: 28px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .view-tab {
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    padding: 10px 20px;
+    cursor: pointer;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    transition: all 0.15s;
+    margin-bottom: -1px;
+  }
+
+  .view-tab:hover { color: var(--text); }
+  .view-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  /* Portfolio add button in table */
+  .pf-add-btn {
+    background: transparent;
+    border: 1px solid rgba(0,229,160,0.3);
+    color: var(--accent);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    padding: 3px 8px;
+    cursor: pointer;
+    transition: all 0.15s;
+    line-height: 1;
+  }
+
+  .pf-add-btn:hover:not(:disabled) {
+    background: rgba(0,229,160,0.1);
+    border-color: var(--accent);
+  }
+
+  .pf-add-btn:disabled {
+    opacity: 0.25;
+    cursor: not-allowed;
+  }
+
+  .pf-add-btn.in-pf {
+    border-color: rgba(0,229,160,0.6);
+    background: rgba(0,229,160,0.08);
+  }
+
+  /* Portfolio section */
+  .pf-empty {
+    padding: 48px 20px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.72rem;
+    letter-spacing: 0.04em;
+    line-height: 1.8;
+  }
+
+  .pf-layout {
+    display: grid;
+    grid-template-columns: 1fr 320px;
+  }
+
+  @media (max-width: 900px) {
+    .pf-layout { grid-template-columns: 1fr; }
+  }
+
+  .pf-table-wrap {
+    border-right: 1px solid var(--border);
+    overflow-x: auto;
+  }
+
+  .pf-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.72rem;
+  }
+
+  .pf-table th {
+    padding: 9px 14px;
+    text-align: left;
+    color: var(--muted);
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+
+  .pf-table td {
+    padding: 10px 14px;
+    border-bottom: 1px solid rgba(30,37,48,0.5);
+    white-space: nowrap;
+  }
+
+  .pf-remove-btn {
+    background: transparent;
+    border: 1px solid rgba(255,69,96,0.3);
+    color: var(--red);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.6rem;
+    padding: 3px 8px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .pf-remove-btn:hover {
+    background: rgba(255,69,96,0.1);
+    border-color: var(--red);
+  }
+
+  .pf-chart-panel {
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .pf-stat-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1px;
+    background: var(--border);
+  }
+
+  .pf-stat {
+    background: var(--surface2);
+    padding: 10px 12px;
+  }
+
+  .pf-stat .lbl {
+    font-size: 0.58rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 4px;
+  }
+
+  .pf-stat .val {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.1rem;
+    font-weight: 700;
+  }
+
+  .pf-stat .val.green { color: var(--green); }
+  .pf-stat .val.red   { color: var(--red); }
+
+  .pf-chart-wrap {
+    flex: 1;
+    min-height: 190px;
+  }
 </style>
 </head>
 <body>
@@ -533,57 +691,80 @@
     <div class="stat-card"><div class="label">Ø Momentum</div><div class="value" id="statAvgMom">—</div></div>
   </div>
 
-  <!-- Filters -->
-  <div class="filters">
-    <span class="filter-label">Visa:</span>
-    <button class="filter-btn active" onclick="setFilter('all', this)">Alla</button>
-    <button class="filter-btn" onclick="setFilter('above_ma200', this)">Över MA200</button>
-    <button class="filter-btn" onclick="setFilter('golden_cross', this)">Golden Cross</button>
-    <button class="filter-btn" onclick="setFilter('overbought', this)">RSI &gt; 70</button>
-    <button class="filter-btn" onclick="setFilter('oversold', this)">RSI &lt; 30</button>
-    <button class="filter-btn" onclick="setFilter('top10', this)">Top 10 Momentum</button>
-    <button class="filter-btn" onclick="sortBy('last_golden_date'); setFilter('golden_cross', this)">Senaste Golden Cross ↓</button>
+  <!-- View tabs -->
+  <div class="view-tabs">
+    <button class="view-tab active" id="tab-market" onclick="setView('market')">Marknaden</button>
+    <button class="view-tab" id="tab-portfolio" onclick="setView('portfolio')">Min Portfölj <span id="pfBadge"></span></button>
   </div>
 
-  <!-- Main layout -->
-  <div class="main-layout">
+  <!-- Market view -->
+  <div id="marketView">
 
-    <!-- Table -->
-    <div class="table-section">
-      <div class="section-header">
-        <span class="section-title">Aktier</span>
-        <span class="last-updated" id="rowCount">—</span>
-      </div>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th onclick="sortBy('name')">#  Aktie</th>
-              <th onclick="sortBy('price')">Kurs</th>
-              <th onclick="sortBy('ma200')">MA200</th>
-              <th onclick="sortBy('rsi')">RSI</th>
-              <th onclick="sortBy('mom_1m')">1M</th>
-              <th onclick="sortBy('mom_3m')">3M</th>
-              <th onclick="sortBy('mom_6m')">6M</th>
-              <th onclick="sortBy('mom_12m')">12M</th>
-              <th onclick="sortBy('momentum_score')">Score</th>
-              <th onclick="sortBy('last_golden_date')">Golden Cross</th>
-              <th>Signal</th>
-            </tr>
-          </thead>
-          <tbody id="tableBody">
-            <tr><td colspan="11"><div class="loading-state"><div class="spinner"></div><span class="loading-text">Hämtar marknadsdata...</span></div></td></tr>
-          </tbody>
-        </table>
-      </div>
-      <div id="showAllTableBtn" style="display:none;padding:14px 20px;border-top:1px solid var(--border);text-align:center">
-        <button class="refresh-btn" onclick="loadAll()" style="border-color:var(--accent2);color:var(--accent2);font-size:0.72rem;padding:10px 28px">
-          ▼ Visa alla Large Cap + Mid Cap (~110 aktier)
-        </button>
-      </div>
+    <!-- Filters -->
+    <div class="filters">
+      <span class="filter-label">Visa:</span>
+      <button class="filter-btn active" onclick="setFilter('all', this)">Alla</button>
+      <button class="filter-btn" onclick="setFilter('above_ma200', this)">Över MA200</button>
+      <button class="filter-btn" onclick="setFilter('golden_cross', this)">Golden Cross</button>
+      <button class="filter-btn" onclick="setFilter('overbought', this)">RSI &gt; 70</button>
+      <button class="filter-btn" onclick="setFilter('oversold', this)">RSI &lt; 30</button>
+      <button class="filter-btn" onclick="setFilter('top10', this)">Top 10 Momentum</button>
+      <button class="filter-btn" onclick="sortBy('last_golden_date'); setFilter('golden_cross', this)">Senaste Golden Cross ↓</button>
     </div>
 
+    <!-- Main layout -->
+    <div class="main-layout">
+
+      <!-- Table -->
+      <div class="table-section">
+        <div class="section-header">
+          <span class="section-title">Aktier</span>
+          <span class="last-updated" id="rowCount">—</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th onclick="sortBy('name')">#  Aktie</th>
+                <th onclick="sortBy('price')">Kurs</th>
+                <th onclick="sortBy('ma200')">MA200</th>
+                <th onclick="sortBy('rsi')">RSI</th>
+                <th onclick="sortBy('mom_1m')">1M</th>
+                <th onclick="sortBy('mom_3m')">3M</th>
+                <th onclick="sortBy('mom_6m')">6M</th>
+                <th onclick="sortBy('mom_12m')">12M</th>
+                <th onclick="sortBy('momentum_score')">Score</th>
+                <th onclick="sortBy('last_golden_date')">Golden Cross</th>
+                <th>Signal</th>
+                <th style="text-align:center;color:var(--accent)">Portfölj</th>
+              </tr>
+            </thead>
+            <tbody id="tableBody">
+              <tr><td colspan="12"><div class="loading-state"><div class="spinner"></div><span class="loading-text">Hämtar marknadsdata...</span></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div id="showAllTableBtn" style="display:none;padding:14px 20px;border-top:1px solid var(--border);text-align:center">
+          <button class="refresh-btn" onclick="loadAll()" style="border-color:var(--accent2);color:var(--accent2);font-size:0.72rem;padding:10px 28px">
+            ▼ Visa alla Large Cap + Mid Cap (~110 aktier)
+          </button>
+        </div>
+      </div>
+
+    </div>
   </div>
+
+  <!-- Portfolio view -->
+  <div id="portfolioView" style="display:none">
+    <div class="table-section" style="border-color:var(--accent)">
+      <div class="section-header">
+        <span class="section-title" style="color:var(--accent)">Min Portfölj</span>
+        <span class="last-updated" id="pfMeta">—</span>
+      </div>
+      <div id="portfolioContent"></div>
+    </div>
+  </div>
+
 </div>
 
 <script>
@@ -621,6 +802,7 @@ async function loadData(endpoint = '/api/stocks/top') {
     document.getElementById('lastUpdated').textContent = 'Uppdaterad ' + new Date().toLocaleTimeString('sv-SE');
     updateStats();
     renderTable();
+    if (currentView === 'portfolio') renderPortfolio();
   } catch (e) {
     document.getElementById('tableBody').innerHTML = `<tr><td colspan="11" style="padding:40px 20px;text-align:center;color:var(--red);font-size:0.72rem;">⚠ Kunde inte ansluta till backend. Starta app.py på port 5050.</td></tr>`;
   }
@@ -733,6 +915,14 @@ function renderTable() {
     const dropdownId = 'chart-' + s.ticker.replace(/[^a-zA-Z0-9]/g,'_');
     const isOpen = selectedTicker === s.ticker;
 
+    const inPf = portfolio && portfolio.stocks.find(p => p.ticker === s.ticker);
+    const pfFull = portfolio && portfolio.stocks.length >= 10 && !inPf;
+    const pfBtn = inPf
+      ? `<button class="pf-add-btn in-pf" onclick="event.stopPropagation();togglePortfolio('${s.ticker}')" title="Ta bort från portfölj">✓</button>`
+      : pfFull
+        ? `<button class="pf-add-btn" disabled title="Max 10 aktier">＋</button>`
+        : `<button class="pf-add-btn" onclick="event.stopPropagation();togglePortfolio('${s.ticker}')" title="Lägg till i portfölj">＋</button>`;
+
     const rowHtml = `<tr class="${isOpen ? 'selected' : ''}" onclick="selectStock('${s.ticker}')">
       <td>
         <div class="stock-name">${s.name} <span style="font-size:0.65rem;color:var(--muted)">${isOpen ? '▲' : '▼'}</span></div>
@@ -764,16 +954,17 @@ function renderTable() {
           : '<span style="color:var(--muted);font-size:0.62rem">—</span>'}
       </td>
       <td>${signal}</td>
+      <td style="text-align:center">${pfBtn}</td>
     </tr>`;
 
     const dropdownHtml = isOpen
-      ? `<tr class="chart-dropdown open" id="${dropdownId}"><td colspan="11"><div id="chart-container-${s.ticker.replace(/[^a-zA-Z0-9]/g,'_')}"></div></td></tr>`
-      : `<tr class="chart-dropdown" id="${dropdownId}"><td colspan="11"></td></tr>`;
+      ? `<tr class="chart-dropdown open" id="${dropdownId}"><td colspan="12"><div id="chart-container-${s.ticker.replace(/[^a-zA-Z0-9]/g,'_')}"></div></td></tr>`
+      : `<tr class="chart-dropdown" id="${dropdownId}"><td colspan="12"></td></tr>`;
 
     return rowHtml + dropdownHtml;
   }).join('');
 
-  document.getElementById('tableBody').innerHTML = html || `<tr><td colspan="11" style="padding:32px;text-align:center;color:var(--muted);font-size:0.72rem;">Inga aktier matchar filtret</td></tr>`;
+  document.getElementById('tableBody').innerHTML = html || `<tr><td colspan="12" style="padding:32px;text-align:center;color:var(--muted);font-size:0.72rem;">Inga aktier matchar filtret</td></tr>`;
   // Visa/dölj "Visa alla"-knapp i tabellen
   const showAllTableBtn = document.getElementById('showAllTableBtn');
   if (showAllTableBtn) showAllTableBtn.style.display = allLoaded ? 'none' : 'block';
@@ -930,7 +1121,257 @@ function momBarRow(label, val) {
   </div>`;
 }
 
+// ── Portfolio ────────────────────────────────────────────────────────────
+let portfolio = null; // { created: 'YYYY-MM-DD', stocks: [{ticker, name, initialPrice}] }
+let pfChartInstance = null;
+let currentView = 'market';
+
+function loadPortfolio() {
+  try {
+    const raw = localStorage.getItem('omxsgi_portfolio');
+    if (raw) portfolio = JSON.parse(raw);
+  } catch(e) { portfolio = null; }
+}
+
+function savePortfolio() {
+  localStorage.setItem('omxsgi_portfolio', JSON.stringify(portfolio));
+}
+
+function updatePfBadge() {
+  const el = document.getElementById('pfBadge');
+  if (el) {
+    const n = portfolio ? portfolio.stocks.length : 0;
+    el.textContent = n > 0 ? `(${n}/10)` : '';
+    el.style.color = 'var(--accent)';
+  }
+}
+
+function togglePortfolio(ticker) {
+  if (portfolio && portfolio.stocks.find(s => s.ticker === ticker)) {
+    removeFromPortfolio(ticker);
+  } else {
+    addToPortfolio(ticker);
+  }
+}
+
+function addToPortfolio(ticker) {
+  const stock = allData.find(s => s.ticker === ticker);
+  if (!stock) return;
+  if (portfolio && portfolio.stocks.length >= 10) return;
+  if (!portfolio) {
+    portfolio = { created: new Date().toISOString().split('T')[0], stocks: [] };
+  }
+  if (portfolio.stocks.find(s => s.ticker === ticker)) return;
+  portfolio.stocks.push({ ticker, name: stock.name, initialPrice: stock.price });
+  savePortfolio();
+  updatePfBadge();
+  renderTable();
+  if (currentView === 'portfolio') renderPortfolio();
+}
+
+function removeFromPortfolio(ticker) {
+  if (!portfolio) return;
+  portfolio.stocks = portfolio.stocks.filter(s => s.ticker !== ticker);
+  if (portfolio.stocks.length === 0) portfolio = null;
+  savePortfolio();
+  updatePfBadge();
+  renderTable();
+  if (currentView === 'portfolio') renderPortfolio();
+}
+
+function clearPortfolio() {
+  portfolio = null;
+  localStorage.removeItem('omxsgi_portfolio');
+  updatePfBadge();
+  renderTable();
+  renderPortfolio();
+}
+
+function setView(view) {
+  currentView = view;
+  document.querySelectorAll('.view-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-' + view).classList.add('active');
+  document.getElementById('marketView').style.display = view === 'market' ? 'block' : 'none';
+  document.getElementById('portfolioView').style.display = view === 'portfolio' ? 'block' : 'none';
+  if (view === 'portfolio') renderPortfolio();
+}
+
+function renderPortfolio() {
+  const el = document.getElementById('portfolioContent');
+  const metaEl = document.getElementById('pfMeta');
+  if (!el) return;
+
+  if (!portfolio || portfolio.stocks.length === 0) {
+    el.innerHTML = `<div class="pf-empty">
+      <div style="font-size:1.5rem;opacity:0.25;margin-bottom:14px">◈</div>
+      Ingen portfölj skapad ännu.<br>
+      <span style="color:var(--muted2)">Gå till <strong style="color:var(--text)">Marknaden</strong> och klicka <strong style="color:var(--accent)">＋</strong> på upp till 10 aktier.</span>
+    </div>`;
+    if (metaEl) metaEl.textContent = '0/10 aktier';
+    return;
+  }
+
+  const stocks = portfolio.stocks.map(ps => {
+    const live = allData.find(s => s.ticker === ps.ticker);
+    const currentPrice = live ? live.price : null;
+    const ret = (currentPrice && ps.initialPrice) ? (currentPrice / ps.initialPrice - 1) * 100 : null;
+    return { ...ps, currentPrice, ret, live };
+  });
+
+  const withRet = stocks.filter(s => s.ret !== null);
+  const totalRet = withRet.length > 0
+    ? withRet.reduce((sum, s) => sum + s.ret, 0) / portfolio.stocks.length
+    : null;
+
+  const daysSince = Math.round((new Date() - new Date(portfolio.created)) / 86400000);
+  if (metaEl) metaEl.textContent = `Skapad ${portfolio.created} · ${daysSince} dagar sedan`;
+
+  const totalCls = totalRet === null ? '' : totalRet >= 0 ? 'green' : 'red';
+  const totalStr = totalRet === null ? '—' : (totalRet >= 0 ? '+' : '') + totalRet.toFixed(2) + '%';
+
+  // Current weights drift with price changes (buy-and-hold, 10% each at creation)
+  const totalFactor = stocks.reduce((sum, s) => sum + (1 + (s.ret ?? 0) / 100), 0);
+
+  const rowsHtml = stocks.map(s => {
+    const retHtml = s.ret !== null ? pctHtml(s.ret) : '<span style="color:var(--muted)">—</span>';
+    const priceNow = s.currentPrice !== null
+      ? s.currentPrice.toLocaleString('sv-SE', {minimumFractionDigits:2}) + ' kr'
+      : '<span style="color:var(--muted)">—</span>';
+    const priceInit = s.initialPrice.toLocaleString('sv-SE', {minimumFractionDigits:2}) + ' kr';
+    const currentWeight = ((1 + (s.ret ?? 0) / 100) / totalFactor * 100).toFixed(1) + '%';
+    return `<tr>
+      <td>
+        <div class="stock-name">${s.name}</div>
+        <div class="stock-ticker">${s.ticker.replace('.ST','')}</div>
+      </td>
+      <td style="color:var(--muted);font-size:0.68rem">${priceInit}</td>
+      <td class="price">${priceNow}</td>
+      <td>${retHtml}</td>
+      <td style="font-size:0.68rem">${currentWeight}<span style="color:var(--muted);font-size:0.58rem;margin-left:3px">(10% start)</span></td>
+      <td><button class="pf-remove-btn" onclick="removeFromPortfolio('${s.ticker}')">Ta bort</button></td>
+    </tr>`;
+  }).join('');
+
+  el.innerHTML = `
+    <div class="pf-layout">
+      <div class="pf-table-wrap">
+        <table class="pf-table">
+          <thead>
+            <tr>
+              <th>Aktie</th>
+              <th>Köpkurs</th>
+              <th>Kurs nu</th>
+              <th>Avkastning</th>
+              <th>Vikt</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>${rowsHtml}</tbody>
+        </table>
+      </div>
+      <div class="pf-chart-panel">
+        <div class="pf-stat-row">
+          <div class="pf-stat">
+            <div class="lbl">Total avkastning</div>
+            <div class="val ${totalCls}">${totalStr}</div>
+          </div>
+          <div class="pf-stat">
+            <div class="lbl">Aktier</div>
+            <div class="val">${portfolio.stocks.length}<span style="font-size:0.75rem;color:var(--muted)">/10</span></div>
+          </div>
+          <div class="pf-stat" style="grid-column:span 2">
+            <div class="lbl">Uppföljning upp till</div>
+            <div class="val" style="font-size:0.82rem;color:var(--muted2)">${portfolio.created} + 1 år</div>
+          </div>
+        </div>
+        <div class="pf-chart-wrap"><canvas id="pfChart"></canvas></div>
+        <button class="pf-remove-btn" style="width:100%;padding:8px;font-size:0.62rem;letter-spacing:0.05em;text-align:center"
+          onclick="if(confirm('Radera portföljen?')) clearPortfolio()">Radera portfölj</button>
+      </div>
+    </div>`;
+
+  renderPortfolioChart(stocks);
+}
+
+function renderPortfolioChart(stocks) {
+  const canvas = document.getElementById('pfChart');
+  if (!canvas) return;
+  if (pfChartInstance) { pfChartInstance.destroy(); pfChartInstance = null; }
+
+  const createdDate = portfolio.created;
+  const liveStocks = stocks.filter(s => s.live && s.live.dates && s.live.prices);
+
+  // For each stock: find index at/after creation date, normalize to 1.0 at that point
+  const stockSeries = liveStocks.map(s => {
+    let startIdx = s.live.dates.findIndex(d => d >= createdDate);
+    if (startIdx === -1) startIdx = 0;
+    const initPrice = s.live.prices[startIdx];
+    if (!initPrice) return null;
+    return {
+      dates: s.live.dates.slice(startIdx, startIdx + 252),
+      returns: s.live.prices.slice(startIdx, startIdx + 252).map(p => (p / initPrice - 1) * 100)
+    };
+  }).filter(Boolean);
+
+  if (stockSeries.length === 0) {
+    canvas.parentElement.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:190px;color:var(--muted);font-size:0.7rem;">Ladda marknadsdata för att visa graf</div>';
+    return;
+  }
+
+  // Use shortest series length for common timeline
+  const minLen = Math.min(...stockSeries.map(s => s.dates.length));
+  const dates = stockSeries[0].dates.slice(0, minLen);
+  const portfolioReturns = dates.map((_, i) => {
+    const avg = stockSeries.reduce((sum, s) => sum + (s.returns[i] ?? 0), 0) / stockSeries.length;
+    return parseFloat(avg.toFixed(2));
+  });
+
+  const lastRet = portfolioReturns[portfolioReturns.length - 1] ?? 0;
+  const lineColor = lastRet >= 0 ? '#00e5a0' : '#ff4560';
+
+  const ctx = canvas.getContext('2d');
+  pfChartInstance = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: dates,
+      datasets: [{
+        label: 'Portföljutveckling',
+        data: portfolioReturns,
+        borderColor: lineColor,
+        borderWidth: 1.5,
+        pointRadius: 0,
+        tension: 0.1,
+        fill: { target: { value: 0 }, above: 'rgba(0,229,160,0.07)', below: 'rgba(255,69,96,0.07)' }
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#111418', borderColor: '#1e2530', borderWidth: 1,
+          titleColor: '#8a93a0', bodyColor: '#e8ecf0',
+          titleFont: { family: 'DM Mono', size: 10 }, bodyFont: { family: 'DM Mono', size: 11 },
+          callbacks: { label: c => ` ${c.parsed.y >= 0 ? '+' : ''}${c.parsed.y.toFixed(2)}%` }
+        },
+        annotation: {
+          annotations: {
+            zero: { type: 'line', yMin: 0, yMax: 0, borderColor: 'rgba(90,99,112,0.4)', borderWidth: 1, borderDash: [4,4] }
+          }
+        }
+      },
+      scales: {
+        x: { ticks: { color: '#3a4350', font: { size: 9, family: 'DM Mono' }, maxTicksLimit: 6, maxRotation: 0 }, grid: { color: 'rgba(30,37,48,0.6)' } },
+        y: { ticks: { color: '#5a6370', font: { size: 9, family: 'DM Mono' }, maxTicksLimit: 5, callback: v => (v >= 0 ? '+' : '') + v.toFixed(1) + '%' }, grid: { color: 'rgba(30,37,48,0.6)' } }
+      }
+    }
+  });
+}
+
 // Load on start
+loadPortfolio();
+updatePfBadge();
 loadData('/api/stocks/top');
 </script>
 </body>
