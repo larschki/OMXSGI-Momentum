@@ -2,13 +2,14 @@ from flask import Flask, jsonify, request, session, redirect, url_for, send_from
 from flask_cors import CORS
 from functools import wraps
 import os
+import time
 os.environ['TZ'] = 'UTC'  # Force UTC to avoid DST nonexistent-time errors in yfinance
+time.tzset()              # Apply TZ change to the current process (required on Linux)
 import hashlib
 import yfinance as yf
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
-import time
 
 app = Flask(__name__, static_folder=".", static_url_path="")
 app.secret_key = os.environ.get("SECRET_KEY", "omxsgi-momentum-secret-2024")
