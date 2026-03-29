@@ -21,8 +21,10 @@ The app is available at `http://localhost:5050`. Login with credentials set via 
 
 ```bash
 # Railway uses gunicorn via Procfile / railway.toml
-# Start command: gunicorn app:app --bind 0.0.0.0:$PORT --timeout 120 --workers 1
+# Start command: TZ=UTC gunicorn app:app --bind 0.0.0.0:$PORT --timeout 120 --workers 1
 ```
+
+`TZ=UTC` is prepended to the start command (not set in code) to ensure UTC is active before Python loads — this prevents yfinance from generating naive datetimes that fall in a DST gap when localized to exchange timezones (e.g. `Europe/Stockholm`). Dates passed to `yf.download()` are always UTC date strings (`'YYYY-MM-DD'`), never naive `datetime` objects, for the same reason.
 
 Required env vars on Railway: `SECRET_KEY`, `DASHBOARD_USER`, `DASHBOARD_PASS`, `PORT` (auto-set by Railway).
 
@@ -32,7 +34,7 @@ This is a single-file Flask app with a single-page frontend — no build step, n
 
 **`app.py`** — Flask backend only. Responsibilities:
 - Session-based auth (SHA256 password hash, `flask-session`)
-- Batch-fetches all tickers from Yahoo Finance via `yfinance.download()` with `group_by="column"` (MultiIndex DataFrame)
+- Batch-fetches all tickers from Yahoo Finance via `yfinance.download()` with `auto_adjust=True`. Column format detection handles both old `(field, ticker)` and new `(ticker, field)` MultiIndex layouts — swaps levels if needed.
 - Computes MA50, MA200, RSI(14), momentum scores (1M/3M/6M/12M), golden/death cross events per ticker
 - Three endpoints: `/api/stocks/top` (tier 1, ~30 Large Cap), `/api/stocks` (all ~110 tickers in batches of 25), `/api/stock/<ticker>` (single)
 - Streams `/api/stocks` response to avoid Railway's 120s timeout
