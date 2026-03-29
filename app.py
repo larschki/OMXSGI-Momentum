@@ -2,6 +2,7 @@ from flask import Flask, jsonify, request, session, redirect, url_for, send_from
 from flask_cors import CORS
 from functools import wraps
 import os
+os.environ['TZ'] = 'UTC'  # Force UTC to avoid DST nonexistent-time errors in yfinance
 import hashlib
 import yfinance as yf
 import pandas as pd
