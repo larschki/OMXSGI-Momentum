@@ -334,91 +334,111 @@ def login_page():
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>OMXSGI Momentum — Logga in</title>
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<title>OMX Momentum — Logga in</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
 <style>
   * {{ box-sizing: border-box; margin: 0; padding: 0; }}
   body {{
-    background: #0a0c0f;
-    color: #e8ecf0;
-    font-family: 'DM Mono', monospace;
+    background: #0b0f1a;
+    color: #dce8f5;
+    font-family: 'Outfit', sans-serif;
     min-height: 100vh;
     display: flex;
     align-items: center;
     justify-content: center;
   }}
-  body::before {{
-    content: '';
-    position: fixed;
-    inset: 0;
-    background-image: linear-gradient(#1e2530 1px, transparent 1px), linear-gradient(90deg, #1e2530 1px, transparent 1px);
-    background-size: 40px 40px;
-    opacity: 0.3;
-    pointer-events: none;
-  }}
   .box {{
-    position: relative;
-    background: #111418;
-    border: 1px solid #1e2530;
+    background: #121827;
+    border: 1px solid #263348;
+    border-radius: 16px;
     padding: 48px 40px;
-    width: 360px;
+    width: 380px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  }}
+  .logo {{
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 6px;
+  }}
+  .logo-dot {{
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #5a9fd4;
+    flex-shrink: 0;
   }}
   h1 {{
-    font-family: 'Syne', sans-serif;
+    font-family: 'Outfit', sans-serif;
     font-size: 1.6rem;
-    font-weight: 800;
-    letter-spacing: -0.03em;
-    margin-bottom: 4px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: #dce8f5;
   }}
-  h1 span {{ color: #00e5a0; }}
+  h1 span {{ color: #5a9fd4; }}
   .sub {{
-    font-size: 0.65rem;
-    color: #5a6370;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    margin-bottom: 32px;
+    font-size: 0.76rem;
+    color: #64748b;
+    font-weight: 400;
+    margin-bottom: 36px;
+    margin-left: 18px;
   }}
   label {{
-    font-size: 0.62rem;
-    color: #5a6370;
+    font-size: 0.72rem;
+    color: #8fa3bf;
+    font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.05em;
     display: block;
     margin-bottom: 6px;
   }}
   input {{
     width: 100%;
-    background: #171b21;
-    border: 1px solid #1e2530;
-    color: #e8ecf0;
-    font-family: 'DM Mono', monospace;
-    font-size: 0.85rem;
-    padding: 10px 12px;
+    background: #1a2335;
+    border: 1px solid #263348;
+    border-radius: 8px;
+    color: #dce8f5;
+    font-family: 'Fira Code', monospace;
+    font-size: 0.88rem;
+    padding: 11px 14px;
     margin-bottom: 20px;
     outline: none;
-    transition: border-color 0.15s;
+    transition: border-color 0.15s, box-shadow 0.15s;
   }}
-  input:focus {{ border-color: #00e5a0; }}
+  input:focus {{
+    border-color: #5a9fd4;
+    box-shadow: 0 0 0 3px rgba(90,159,212,0.12);
+  }}
   button {{
     width: 100%;
-    background: transparent;
-    border: 1px solid #00e5a0;
-    color: #00e5a0;
-    font-family: 'DM Mono', monospace;
-    font-size: 0.72rem;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
+    background: #5a9fd4;
+    border: none;
+    border-radius: 8px;
+    color: #0b0f1a;
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.88rem;
+    font-weight: 600;
     padding: 12px;
     cursor: pointer;
-    transition: all 0.15s;
+    transition: background 0.15s, transform 0.1s;
+    margin-top: 4px;
   }}
-  button:hover {{ background: #00e5a0; color: #0a0c0f; }}
-  .error {{ color: #ff4560; font-size: 0.68rem; margin-bottom: 16px; }}
+  button:hover {{ background: #7dbde8; }}
+  button:active {{ transform: scale(0.99); }}
+  .error {{
+    color: #f87171;
+    font-size: 0.76rem;
+    margin-bottom: 18px;
+    padding: 10px 14px;
+    background: rgba(248,113,113,0.08);
+    border: 1px solid rgba(248,113,113,0.2);
+    border-radius: 8px;
+  }}
 </style>
 </head>
 <body>
 <div class="box">
-  <h1>OMXSGI <span>Momentum</span></h1>
+  <div class="logo"><div class="logo-dot"></div><h1>OMX <span>Momentum</span></h1></div>
   <p class="sub">Stockholmsbörsen Dashboard</p>
   {"<p class='error'>⚠ Fel användarnamn eller lösenord</p>" if error else ""}
   <form method="POST" action="/login">
@@ -426,7 +446,7 @@ def login_page():
     <input type="text" name="username" autofocus autocomplete="username">
     <label>Lösenord</label>
     <input type="password" name="password" autocomplete="current-password">
-    <button type="submit">Logga in →</button>
+    <button type="submit">Logga in</button>
   </form>
 </div>
 </body>
