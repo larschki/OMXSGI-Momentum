@@ -46,11 +46,42 @@ This is a single-file Flask app with a single-page frontend — no build step, n
 - Portfolio feature uses `localStorage` key `omxsgi_portfolio` — no backend required
 - Two views: "Marknaden" (market table) and "Min Portfölj" (custom portfolio)
 
+**Login page** — inline HTML string in `app.py` (`login_page()` route, GET `/login`). Same theme as dashboard — edit the f-string directly. Note: CSS braces must be doubled (`{{`, `}}`) inside f-strings.
+
 ## Ticker tiers
 
 Tickers in `TICKERS` dict have a tier value:
 - `tier=1` — Large Cap top ~30 by market cap, loaded on page start via `/api/stocks/top`
 - `tier=2` — rest of Large Cap + Mid Cap, loaded on demand via `/api/stocks`
+
+## Design system (Nordic Night theme)
+
+Both `dashboard.html` and the login page in `app.py` share the same visual theme. Key tokens:
+
+| Variable | Value | Usage |
+|---|---|---|
+| `--bg` | `#0b0f1a` | Page background |
+| `--surface` | `#121827` | Cards, panels |
+| `--surface2` | `#1a2335` | Table headers, section headers |
+| `--border` | `#263348` | All borders |
+| `--accent` | `#5a9fd4` | Primary blue (buttons, active states) |
+| `--accent2` | `#7dbde8` | Lighter blue (hover, chart price line) |
+| `--green` | `#4ade80` | Positive returns, Golden Cross |
+| `--red` / `--danger` | `#f87171` | Negative returns, Death Cross |
+| `--warn` | `#fbbf24` | MA200 line, neutral momentum |
+| `--text` | `#dce8f5` | Primary text |
+| `--muted` | `#64748b` | Secondary/label text |
+| `--muted2` | `#8fa3bf` | Tertiary text |
+
+**Fonts:** `Outfit` (UI, headers, names) + `Fira Code` (prices, tickers, monospace data). Loaded from Google Fonts.
+
+**Border-radius scale:** `--radius-lg: 16px` (panels), `--radius: 12px` (cards), `--radius-sm: 8px` (buttons/inputs), `--radius-xs: 6px` (badges/metrics).
+
+No glows, no scanlines, no grid background. Hover states use subtle background fills, not box-shadows.
+
+**Chart.js colors:** Price line `#7dbde8`, MA50 `#5a9fd4`, MA200 `#fbbf24`. All chart fonts use `Fira Code`.
+
+**App name:** "OMX Momentum" (not "OMXSGI Momentum") — used in `<title>`, `<h1>`, and login page.
 
 ## Portfolio logic
 
