@@ -276,8 +276,10 @@ def fetch_tickers(ticker_dict):
     Hämtar alla tickers i ett enda yfinance-anrop (korrekt batch-metod).
     Returnerar lista med stock-dicts.
     """
-    end   = datetime.now()
-    start = end - timedelta(days=365 * 2)
+    # Use date strings (not datetime objects) so yfinance parses them as midnight,
+    # which avoids DST nonexistent-time errors when the current time falls in a gap.
+    end   = datetime.utcnow().strftime('%Y-%m-%d')
+    start = (datetime.utcnow() - timedelta(days=365 * 2)).strftime('%Y-%m-%d')
     tickers_list = list(ticker_dict.keys())
 
     print(f"  Hämtar {len(tickers_list)} tickers från Yahoo Finance...")
