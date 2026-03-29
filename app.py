@@ -1,8 +1,12 @@
-from flask import Flask, jsonify, request, session, redirect, url_for, send_from_directory
+from flask import Flask, jsonify, request, session, redirect, url_for, Response
 from flask_cors import CORS
 from functools import wraps
+from dotenv import load_dotenv
 import os
 import hashlib
+import requests as req_lib
+
+load_dotenv()
 import yfinance as yf
 import pandas as pd
 import numpy as np
@@ -12,13 +16,37 @@ app = Flask(__name__, static_folder=".", static_url_path="")
 app.secret_key = os.environ.get("SECRET_KEY", "omxsgi-momentum-secret-2024")
 CORS(app)
 
-# ── Inloggning ──────────────────────────────────────────────────────────
-USERNAME = os.environ.get("DASHBOARD_USER", "admin")
-# Lösenord hashas med SHA256 — aldrig plain text i minnet
-PASSWORD_HASH = hashlib.sha256(
-    os.environ.get("DASHBOARD_PASS", "password").encode()
-).hexdigest()
+# ── Supabase ─────────────────────────────────────────────────────────────
+_SB_URL = os.environ.get("SUPABASE_URL", "https://rdmubjbwfzxukacfbrqs.supabase.co")
+_SB_KEY = os.environ.get("SUPABASE_SERVICE_KEY", "")
 
+def _sb_headers():
+    return {
+        "apikey": _SB_KEY,
+        "Authorization": f"Bearer {_SB_KEY}",
+        "Content-Type": "application/json",
+    }
+
+def sb_get_user(username):
+    r = req_lib.get(
+        f"{_SB_URL}/rest/v1/users",
+        headers=_sb_headers(),
+        params={"username": f"eq.{username}", "select": "username,password_hash"},
+        timeout=5,
+    )
+    data = r.json() if r.ok else []
+    return data[0] if data else None
+
+def sb_create_user(username, password_hash):
+    r = req_lib.post(
+        f"{_SB_URL}/rest/v1/users",
+        headers={**_sb_headers(), "Prefer": "return=minimal"},
+        json={"username": username, "password_hash": password_hash},
+        timeout=5,
+    )
+    return r.status_code in (200, 201)
+
+# ── Auth ─────────────────────────────────────────────────────────────────
 def login_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
@@ -323,7 +351,12 @@ def fetch_tickers(ticker_dict):
 def index():
     if not session.get("logged_in"):
         return redirect(url_for("login_page"))
-    return send_from_directory(".", "dashboard.html")
+    username = session.get("username", "default")
+    html_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "dashboard.html")
+    with open(html_path, "r", encoding="utf-8") as f:
+        html = f.read()
+    html = html.replace("</head>", f'<script>window.__PF_USER__="{username}";</script></head>', 1)
+    return Response(html, mimetype="text/html")
 
 
 @app.route("/login", methods=["GET"])
@@ -448,6 +481,140 @@ def login_page():
     <input type="password" name="password" autocomplete="current-password">
     <button type="submit">Logga in</button>
   </form>
+  <p style="text-align:center;margin-top:20px;font-size:0.78rem;color:#64748b;">
+    Inget konto? <a href="/register" style="color:#5a9fd4;text-decoration:none;font-weight:600;">Skapa konto</a>
+  </p>
+</div>
+</body>
+</html>"""
+
+
+def _register_page(error_msg=""):
+    err_html = f"<p class='error'>⚠ {error_msg}</p>" if error_msg else ""
+    return f"""<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OMX Momentum — Skapa konto</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+  body {{
+    background: #0b0f1a;
+    color: #dce8f5;
+    font-family: 'Outfit', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }}
+  .box {{
+    background: #121827;
+    border: 1px solid #263348;
+    border-radius: 16px;
+    padding: 48px 40px;
+    width: 380px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  }}
+  .logo {{
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 6px;
+  }}
+  .logo-dot {{
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #5a9fd4;
+    flex-shrink: 0;
+  }}
+  h1 {{
+    font-family: 'Outfit', sans-serif;
+    font-size: 1.6rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: #dce8f5;
+  }}
+  h1 span {{ color: #5a9fd4; }}
+  .sub {{
+    font-size: 0.76rem;
+    color: #64748b;
+    font-weight: 400;
+    margin-bottom: 36px;
+    margin-left: 18px;
+  }}
+  label {{
+    font-size: 0.72rem;
+    color: #8fa3bf;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    display: block;
+    margin-bottom: 6px;
+  }}
+  input {{
+    width: 100%;
+    background: #1a2335;
+    border: 1px solid #263348;
+    border-radius: 8px;
+    color: #dce8f5;
+    font-family: 'Fira Code', monospace;
+    font-size: 0.88rem;
+    padding: 11px 14px;
+    margin-bottom: 20px;
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }}
+  input:focus {{
+    border-color: #5a9fd4;
+    box-shadow: 0 0 0 3px rgba(90,159,212,0.12);
+  }}
+  button {{
+    width: 100%;
+    background: #5a9fd4;
+    border: none;
+    border-radius: 8px;
+    color: #0b0f1a;
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.88rem;
+    font-weight: 600;
+    padding: 12px;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.1s;
+    margin-top: 4px;
+  }}
+  button:hover {{ background: #7dbde8; }}
+  button:active {{ transform: scale(0.99); }}
+  .error {{
+    color: #f87171;
+    font-size: 0.76rem;
+    margin-bottom: 18px;
+    padding: 10px 14px;
+    background: rgba(248,113,113,0.08);
+    border: 1px solid rgba(248,113,113,0.2);
+    border-radius: 8px;
+  }}
+</style>
+</head>
+<body>
+<div class="box">
+  <div class="logo"><div class="logo-dot"></div><h1>OMX <span>Momentum</span></h1></div>
+  <p class="sub">Skapa ett konto</p>
+  {err_html}
+  <form method="POST" action="/register">
+    <label>Användarnamn</label>
+    <input type="text" name="username" autofocus autocomplete="username" placeholder="minst 3 tecken">
+    <label>Lösenord</label>
+    <input type="password" name="password" autocomplete="new-password" placeholder="minst 6 tecken">
+    <label>Bekräfta lösenord</label>
+    <input type="password" name="confirm" autocomplete="new-password">
+    <button type="submit">Skapa konto</button>
+  </form>
+  <p style="text-align:center;margin-top:20px;font-size:0.78rem;color:#64748b;">
+    Har du redan ett konto? <a href="/login" style="color:#5a9fd4;text-decoration:none;font-weight:600;">Logga in</a>
+  </p>
 </div>
 </body>
 </html>"""
@@ -455,13 +622,48 @@ def login_page():
 
 @app.route("/login", methods=["POST"])
 def login():
-    username = request.form.get("username", "")
+    username = request.form.get("username", "").strip().lower()
     password = request.form.get("password", "")
     pw_hash  = hashlib.sha256(password.encode()).hexdigest()
-    if username == USERNAME and pw_hash == PASSWORD_HASH:
+    user = sb_get_user(username)
+    if user and user["password_hash"] == pw_hash:
         session["logged_in"] = True
+        session["username"] = username
         return redirect(url_for("index"))
     return redirect(url_for("login_page") + "?error=1")
+
+
+@app.route("/register", methods=["GET", "POST"])
+def register():
+    if request.method == "POST":
+        username = request.form.get("username", "").strip().lower()
+        password = request.form.get("password", "")
+        confirm  = request.form.get("confirm", "")
+        if len(username) < 3:
+            return redirect(url_for("register") + "?error=short_username")
+        if len(password) < 6:
+            return redirect(url_for("register") + "?error=short_password")
+        if password != confirm:
+            return redirect(url_for("register") + "?error=mismatch")
+        if sb_get_user(username):
+            return redirect(url_for("register") + "?error=taken")
+        pw_hash = hashlib.sha256(password.encode()).hexdigest()
+        if sb_create_user(username, pw_hash):
+            session["logged_in"] = True
+            session["username"] = username
+            return redirect(url_for("index"))
+        return redirect(url_for("register") + "?error=failed")
+
+    error = request.args.get("error")
+    error_msgs = {
+        "short_username": "Användarnamnet måste vara minst 3 tecken",
+        "short_password": "Lösenordet måste vara minst 6 tecken",
+        "mismatch":       "Lösenorden matchar inte",
+        "taken":          "Användarnamnet är redan taget",
+        "failed":         "Något gick fel, försök igen",
+    }
+    error_msg = error_msgs.get(error, "")
+    return _register_page(error_msg)
 
 
 @app.route("/logout")

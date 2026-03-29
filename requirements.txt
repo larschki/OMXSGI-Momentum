@@ -4,3 +4,5 @@ yfinance
 pandas
 numpy
 gunicorn
+requests
+python-dotenv

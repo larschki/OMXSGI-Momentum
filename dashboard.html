@@ -6,6 +6,7 @@
 <title>OMX Momentum</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-annotation/3.0.1/chartjs-plugin-annotation.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -1182,20 +1183,29 @@ function momBarRow(label, val) {
   </div>`;
 }
 
+// ── Supabase ──────────────────────────────────────────────────────────────
+const _sb = supabase.createClient(
+  'https://rdmubjbwfzxukacfbrqs.supabase.co',
+  'sb_publishable_PulgddaFV94W09IilUFQLw_EPIxTNQS'
+);
+const PF_USER = window.__PF_USER__ || 'default';
+
 // ── Portfolio ────────────────────────────────────────────────────────────
 let portfolio = null; // { created: 'YYYY-MM-DD', stocks: [{ticker, name, initialPrice}] }
 let pfChartInstance = null;
 let currentView = 'market';
 
-function loadPortfolio() {
+async function loadPortfolio() {
   try {
-    const raw = localStorage.getItem('omxsgi_portfolio');
-    if (raw) portfolio = JSON.parse(raw);
+    const { data, error } = await _sb.from('portfolios').select('*').eq('user_id', PF_USER).maybeSingle();
+    if (!error && data) portfolio = { created: data.created, stocks: data.stocks };
+    else portfolio = null;
   } catch(e) { portfolio = null; }
 }
 
-function savePortfolio() {
-  localStorage.setItem('omxsgi_portfolio', JSON.stringify(portfolio));
+async function savePortfolio() {
+  if (!portfolio) return;
+  await _sb.from('portfolios').upsert({ user_id: PF_USER, created: portfolio.created, stocks: portfolio.stocks });
 }
 
 function updatePfBadge() {
@@ -1240,9 +1250,9 @@ function removeFromPortfolio(ticker) {
   if (currentView === 'portfolio') renderPortfolio();
 }
 
-function clearPortfolio() {
+async function clearPortfolio() {
   portfolio = null;
-  localStorage.removeItem('omxsgi_portfolio');
+  await _sb.from('portfolios').delete().eq('user_id', PF_USER);
   updatePfBadge();
   renderTable();
   renderPortfolio();
@@ -1431,8 +1441,7 @@ function renderPortfolioChart(stocks) {
 }
 
 // Load on start
-loadPortfolio();
-updatePfBadge();
+loadPortfolio().then(() => { updatePfBadge(); renderTable(); });
 loadData('/api/stocks/top');
 </script>
 </body>
