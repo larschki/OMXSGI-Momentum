@@ -288,20 +288,24 @@ def fetch_tickers(ticker_dict):
         end=end,
         progress=False,
         auto_adjust=True,
-        group_by="column",   # ger MultiIndex (field, ticker) — korrekt för batch
-        threads=True,
     )
 
     if df.empty:
         print("  [fel] Tom DataFrame från yfinance")
         return []
 
-    # Säkerställ MultiIndex även om bara en ticker returnerades
+    FIELD_NAMES = {'Open', 'High', 'Low', 'Close', 'Volume', 'Adj Close', 'Dividends', 'Stock Splits'}
+
+    # Normalisera till (field, ticker) MultiIndex oavsett yfinance-version
     if not isinstance(df.columns, pd.MultiIndex):
-        # Wrap single-ticker result
+        # Enstaka ticker — wrap till MultiIndex
         df.columns = pd.MultiIndex.from_tuples(
             [(col, tickers_list[0]) for col in df.columns]
         )
+    elif df.columns.get_level_values(0)[0] not in FIELD_NAMES:
+        # Ny yfinance-format: (ticker, field) → byt till (field, ticker)
+        print("  [info] Ny yfinance-kolumnordning detekterad — byter nivåer")
+        df = df.swaplevel(axis=1).sort_index(axis=1)
 
     results = []
     for ticker, (name, tier) in ticker_dict.items():
