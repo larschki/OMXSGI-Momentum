@@ -6,7 +6,6 @@
 <title>OMX Momentum</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-annotation/3.0.1/chartjs-plugin-annotation.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -846,27 +845,54 @@ async function loadData(endpoint = '/api/stocks/top') {
   btn.disabled = true;
   btn.textContent = '⟳ Laddar...';
   const isTop = endpoint === '/api/stocks/top';
-  document.getElementById('tableBody').innerHTML = `<tr><td colspan="11"><div class="loading-state"><div class="spinner"></div><span class="loading-text">${isTop ? 'Hämtar top 30 Large Cap...' : 'Hämtar alla Large + Mid Cap — ca 30 sek...'}</span></div></td></tr>`;
+  document.getElementById('tableBody').innerHTML = `<tr><td colspan="12"><div class="loading-state"><div class="spinner"></div><span class="loading-text">${isTop ? 'Hämtar top 30 Large Cap...' : 'Hämtar alla Large + Mid Cap — ca 30 sek...'}</span></div></td></tr>`;
 
   try {
     const res = await fetch(`${API_BASE}${endpoint}`);
     if (!res.ok) throw new Error('API error');
-    const data = await res.json();
-    if (!isTop) {
-      allData = data;
-      allLoaded = true;
-      document.getElementById('showAllBtn').style.display = 'none';
-    } else {
+
+    if (isTop) {
+      const data = await res.json();
       allData = data;
       allLoaded = false;
       document.getElementById('showAllBtn').style.display = 'inline-block';
+    } else {
+      // NDJSON-streaming — uppdatera tabellen progressivt för varje batch
+      allData = [];
+      allLoaded = false;
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop(); // behåll ofullständig rad
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          try {
+            const batch = JSON.parse(line);
+            allData.push(...batch);
+            updateStats();
+            renderTable();
+          } catch(e) {}
+        }
+      }
+      // Hantera eventuell rest i buffern
+      if (buffer.trim()) {
+        try { allData.push(...JSON.parse(buffer)); } catch(e) {}
+      }
+      allLoaded = true;
+      document.getElementById('showAllBtn').style.display = 'none';
     }
+
     document.getElementById('lastUpdated').textContent = 'Uppdaterad ' + new Date().toLocaleTimeString('sv-SE');
     updateStats();
     renderTable();
     if (currentView === 'portfolio') renderPortfolio();
   } catch (e) {
-    document.getElementById('tableBody').innerHTML = `<tr><td colspan="11" style="padding:40px 20px;text-align:center;color:var(--red);font-size:0.72rem;">⚠ Kunde inte ansluta till backend. Starta app.py på port 5050.</td></tr>`;
+    document.getElementById('tableBody').innerHTML = `<tr><td colspan="12" style="padding:40px 20px;text-align:center;color:var(--red);font-size:0.72rem;">⚠ Kunde inte ansluta till backend. Starta app.py på port 5050.</td></tr>`;
   }
 
   btn.disabled = false;
@@ -897,7 +923,7 @@ function setFilter(f, btn) {
   btn.classList.add('active');
   // Ladda alla aktier vid filtrering om de inte redan är laddade
   if (!allLoaded && f !== 'all') {
-    loadAll().then(() => renderTable());
+    loadAll(); // loadData anropar renderTable internt
   } else {
     renderTable();
   }
@@ -907,7 +933,7 @@ function sortBy(key) {
   if (sortKey === key) sortAsc = !sortAsc;
   else { sortKey = key; sortAsc = false; }
   if (!allLoaded) {
-    loadAll().then(() => renderTable());
+    loadAll(); // loadData anropar renderTable internt
   } else {
     renderTable();
   }
@@ -1183,13 +1209,6 @@ function momBarRow(label, val) {
   </div>`;
 }
 
-// ── Supabase ──────────────────────────────────────────────────────────────
-const _sb = supabase.createClient(
-  'https://rdmubjbwfzxukacfbrqs.supabase.co',
-  'sb_publishable_PulgddaFV94W09IilUFQLw_EPIxTNQS'
-);
-const PF_USER = window.__PF_USER__ || 'default';
-
 // ── Portfolio ────────────────────────────────────────────────────────────
 let portfolio = null; // { created: 'YYYY-MM-DD', stocks: [{ticker, name, initialPrice}] }
 let pfChartInstance = null;
@@ -1197,15 +1216,25 @@ let currentView = 'market';
 
 async function loadPortfolio() {
   try {
-    const { data, error } = await _sb.from('portfolios').select('*').eq('user_id', PF_USER).maybeSingle();
-    if (!error && data) portfolio = { created: data.created, stocks: data.stocks };
-    else portfolio = null;
+    const res = await fetch('/api/portfolio');
+    if (res.ok) {
+      const data = await res.json();
+      portfolio = (data && data.stocks && data.stocks.length > 0)
+        ? { created: data.created, stocks: data.stocks }
+        : null;
+    } else {
+      portfolio = null;
+    }
   } catch(e) { portfolio = null; }
 }
 
 async function savePortfolio() {
   if (!portfolio) return;
-  await _sb.from('portfolios').upsert({ user_id: PF_USER, created: portfolio.created, stocks: portfolio.stocks });
+  await fetch('/api/portfolio', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(portfolio),
+  });
 }
 
 function updatePfBadge() {
@@ -1252,7 +1281,7 @@ function removeFromPortfolio(ticker) {
 
 async function clearPortfolio() {
   portfolio = null;
-  await _sb.from('portfolios').delete().eq('user_id', PF_USER);
+  await fetch('/api/portfolio', { method: 'DELETE' });
   updatePfBadge();
   renderTable();
   renderPortfolio();
@@ -1291,7 +1320,7 @@ function renderPortfolio() {
 
   const withRet = stocks.filter(s => s.ret !== null);
   const totalRet = withRet.length > 0
-    ? withRet.reduce((sum, s) => sum + s.ret, 0) / portfolio.stocks.length
+    ? withRet.reduce((sum, s) => sum + s.ret, 0) / withRet.length
     : null;
 
   const daysSince = Math.round((new Date() - new Date(portfolio.created)) / 86400000);

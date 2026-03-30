@@ -1,9 +1,10 @@
 from flask import Flask, jsonify, request, session, redirect, url_for, Response
-from flask_cors import CORS
 from functools import wraps
 from dotenv import load_dotenv
 import os
 import hashlib
+import secrets
+import bcrypt
 import requests as req_lib
 
 load_dotenv()
@@ -11,14 +12,32 @@ import yfinance as yf
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 
 app = Flask(__name__, static_folder=".", static_url_path="")
-app.secret_key = os.environ.get("SECRET_KEY", "omxsgi-momentum-secret-2024")
-CORS(app)
+
+# ── Secret key ────────────────────────────────────────────────────────────
+_secret = os.environ.get("SECRET_KEY")
+if not _secret:
+    _secret = secrets.token_hex(32)
+    print("[warn] SECRET_KEY inte satt — sessions fungerar inte över omstarter", flush=True)
+app.secret_key = _secret
+
+# ── Rate limiting ─────────────────────────────────────────────────────────
+limiter = Limiter(
+    key_func=get_remote_address,
+    app=app,
+    default_limits=[],
+    storage_uri="memory://",
+)
 
 # ── Supabase ─────────────────────────────────────────────────────────────
 _SB_URL = os.environ.get("SUPABASE_URL", "https://rdmubjbwfzxukacfbrqs.supabase.co")
 _SB_KEY = os.environ.get("SUPABASE_SERVICE_KEY", "")
+if not _SB_KEY:
+    print("[warn] SUPABASE_SERVICE_KEY inte satt — autentisering och portfölj fungerar inte", flush=True)
+
 
 def _sb_headers():
     return {
@@ -27,24 +46,107 @@ def _sb_headers():
         "Content-Type": "application/json",
     }
 
+
 def sb_get_user(username):
-    r = req_lib.get(
-        f"{_SB_URL}/rest/v1/users",
-        headers=_sb_headers(),
-        params={"username": f"eq.{username}", "select": "username,password_hash"},
-        timeout=5,
-    )
-    data = r.json() if r.ok else []
-    return data[0] if data else None
+    try:
+        r = req_lib.get(
+            f"{_SB_URL}/rest/v1/users",
+            headers=_sb_headers(),
+            params={"username": f"eq.{username}", "select": "username,password_hash"},
+            timeout=5,
+        )
+        data = r.json() if r.ok else []
+        return data[0] if data else None
+    except Exception as e:
+        print(f"[sb_get_user error] {e}", flush=True)
+        return None
+
 
 def sb_create_user(username, password_hash):
-    r = req_lib.post(
-        f"{_SB_URL}/rest/v1/users",
-        headers={**_sb_headers(), "Prefer": "return=minimal"},
-        json={"username": username, "password_hash": password_hash},
-        timeout=5,
-    )
-    return r.status_code in (200, 201)
+    try:
+        r = req_lib.post(
+            f"{_SB_URL}/rest/v1/users",
+            headers={**_sb_headers(), "Prefer": "return=minimal"},
+            json={"username": username, "password_hash": password_hash},
+            timeout=5,
+        )
+        return r.status_code in (200, 201)
+    except Exception as e:
+        print(f"[sb_create_user error] {e}", flush=True)
+        return False
+
+
+def sb_update_password(username, password_hash):
+    """Uppgraderar ett SHA256-hashat lösenord till bcrypt."""
+    try:
+        r = req_lib.patch(
+            f"{_SB_URL}/rest/v1/users",
+            headers={**_sb_headers(), "Prefer": "return=minimal"},
+            params={"username": f"eq.{username}"},
+            json={"password_hash": password_hash},
+            timeout=5,
+        )
+        return r.ok
+    except Exception as e:
+        print(f"[sb_update_password error] {e}", flush=True)
+        return False
+
+
+def sb_get_portfolio(username):
+    try:
+        r = req_lib.get(
+            f"{_SB_URL}/rest/v1/portfolios",
+            headers=_sb_headers(),
+            params={"user_id": f"eq.{username}", "select": "created,stocks"},
+            timeout=5,
+        )
+        data = r.json() if r.ok else []
+        return data[0] if data else None
+    except Exception as e:
+        print(f"[sb_get_portfolio error] {e}", flush=True)
+        return None
+
+
+def sb_save_portfolio(username, portfolio_data):
+    try:
+        req_lib.post(
+            f"{_SB_URL}/rest/v1/portfolios",
+            headers={**_sb_headers(), "Prefer": "resolution=merge-duplicates,return=minimal"},
+            json={
+                "user_id": username,
+                "created": portfolio_data.get("created"),
+                "stocks": portfolio_data.get("stocks", []),
+            },
+            timeout=5,
+        )
+    except Exception as e:
+        print(f"[sb_save_portfolio error] {e}", flush=True)
+
+
+def sb_delete_portfolio(username):
+    try:
+        req_lib.delete(
+            f"{_SB_URL}/rest/v1/portfolios",
+            headers=_sb_headers(),
+            params={"user_id": f"eq.{username}"},
+            timeout=5,
+        )
+    except Exception as e:
+        print(f"[sb_delete_portfolio error] {e}", flush=True)
+
+
+# ── Lösenord ──────────────────────────────────────────────────────────────
+def hash_password(password: str) -> str:
+    return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+
+
+def verify_password(password: str, stored_hash: str) -> bool:
+    """Verifierar bcrypt-hashat lösenord. Faller tillbaka på legacy SHA256."""
+    if stored_hash.startswith("$2b$") or stored_hash.startswith("$2a$"):
+        return bcrypt.checkpw(password.encode(), stored_hash.encode())
+    # Legacy SHA256 — acceptera och migrera i login-routen
+    return hashlib.sha256(password.encode()).hexdigest() == stored_hash
+
 
 # ── Auth ─────────────────────────────────────────────────────────────────
 def login_required(f):
@@ -54,6 +156,7 @@ def login_required(f):
             return redirect(url_for("login_page"))
         return f(*args, **kwargs)
     return decorated
+
 
 # -----------------------------------------------------------------------
 # Large Cap + Mid Cap på Stockholmsbörsen
@@ -621,16 +724,22 @@ def _register_page(error_msg=""):
 
 
 @app.route("/login", methods=["POST"])
+@limiter.limit("10 per minute")
 def login():
     username = request.form.get("username", "").strip().lower()
     password = request.form.get("password", "")
-    pw_hash  = hashlib.sha256(password.encode()).hexdigest()
     user = sb_get_user(username)
-    if user and user["password_hash"] == pw_hash:
-        session["logged_in"] = True
-        session["username"] = username
-        return redirect(url_for("index"))
-    return redirect(url_for("login_page") + "?error=1")
+    if not user:
+        return redirect(url_for("login_page") + "?error=1")
+    stored = user["password_hash"]
+    if not verify_password(password, stored):
+        return redirect(url_for("login_page") + "?error=1")
+    # Migrera SHA256 → bcrypt vid nästa inloggning
+    if not (stored.startswith("$2b$") or stored.startswith("$2a$")):
+        sb_update_password(username, hash_password(password))
+    session["logged_in"] = True
+    session["username"]   = username
+    return redirect(url_for("index"))
 
 
 @app.route("/register", methods=["GET", "POST"])
@@ -647,10 +756,9 @@ def register():
             return redirect(url_for("register") + "?error=mismatch")
         if sb_get_user(username):
             return redirect(url_for("register") + "?error=taken")
-        pw_hash = hashlib.sha256(password.encode()).hexdigest()
-        if sb_create_user(username, pw_hash):
+        if sb_create_user(username, hash_password(password)):
             session["logged_in"] = True
-            session["username"] = username
+            session["username"]   = username
             return redirect(url_for("index"))
         return redirect(url_for("register") + "?error=failed")
 
@@ -662,8 +770,7 @@ def register():
         "taken":          "Användarnamnet är redan taget",
         "failed":         "Något gick fel, försök igen",
     }
-    error_msg = error_msgs.get(error, "")
-    return _register_page(error_msg)
+    return _register_page(error_msgs.get(error, ""))
 
 
 @app.route("/logout")
@@ -672,29 +779,54 @@ def logout():
     return redirect(url_for("login_page"))
 
 
+# ── Portfolio API (server-side — skyddar mot klientmanipulering) ──────────
+@app.route("/api/portfolio", methods=["GET"])
+@login_required
+def get_portfolio():
+    data = sb_get_portfolio(session["username"])
+    return jsonify(data or {})
+
+
+@app.route("/api/portfolio", methods=["POST"])
+@login_required
+def save_portfolio():
+    data = request.get_json(silent=True) or {}
+    sb_save_portfolio(session["username"], data)
+    return jsonify({"ok": True})
+
+
+@app.route("/api/portfolio", methods=["DELETE"])
+@login_required
+def delete_portfolio():
+    sb_delete_portfolio(session["username"])
+    return jsonify({"ok": True})
+
+
+# ── Aktie-API ─────────────────────────────────────────────────────────────
 @app.route("/api/stocks")
 @login_required
 def stocks():
     """
-    Returnerar alla tier 1+2 i omgångar om 25 tickers.
-    Undviker Renders 30-sekunders timeout genom att dela upp yfinance-anropen.
+    Returnerar alla tier 1+2 som NDJSON — ett batch-array per rad.
+    Skickar data progressivt för att undvika Railway:s 120s timeout.
     """
     import json
-    from flask import Response, stream_with_context
+    from flask import stream_with_context
 
-    all_items = list(TICKERS.items())
+    all_items  = list(TICKERS.items())
     batch_size = 25
-    batches = [dict(all_items[i:i+batch_size]) for i in range(0, len(all_items), batch_size)]
+    batches    = [dict(all_items[i:i + batch_size]) for i in range(0, len(all_items), batch_size)]
 
     def generate():
-        all_results = []
         for batch in batches:
             results = fetch_tickers(batch)
-            all_results.extend(results)
-        all_results.sort(key=lambda x: x["momentum_score"], reverse=True)
-        yield json.dumps(all_results)
+            if results:
+                yield json.dumps(results, ensure_ascii=False) + "\n"
 
-    return Response(stream_with_context(generate()), mimetype="application/json")
+    return Response(
+        stream_with_context(generate()),
+        mimetype="application/x-ndjson",
+    )
 
 
 @app.route("/api/stocks/top")

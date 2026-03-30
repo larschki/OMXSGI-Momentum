@@ -1,8 +1,9 @@
 flask
-flask-cors
 yfinance
 pandas
 numpy
 gunicorn
 requests
 python-dotenv
+bcrypt
+flask-limiter
